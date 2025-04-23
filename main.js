@@ -128,6 +128,127 @@ const moonData = {
     'Pluto ☄️': ['Charon', 'Nix', 'Hydra']
 };
 
+// Add satellite data after planetData
+const satelliteData = {
+    'Moon': {
+        description: 'Earth\'s only natural satellite, the Moon influences our tides and has been visited by humans.',
+        diameter: '3,475 km',
+        type: 'Natural Satellite',
+        distanceFromPlanet: '384,400 km',
+        orbitalPeriod: '27.3 Earth days',
+        surfaceTemp: '-233°C to 123°C'
+    },
+    'Phobos': {
+        description: 'The larger and inner of Mars\'s two moons, Phobos is gradually spiraling closer to Mars.',
+        diameter: '22.2 km',
+        type: 'Natural Satellite',
+        distanceFromPlanet: '9,377 km',
+        orbitalPeriod: '7.7 hours',
+        surfaceTemp: '-40°C'
+    },
+    'Deimos': {
+        description: 'The smaller and outer of Mars\'s two moons, Deimos orbits Mars every 30.3 hours.',
+        diameter: '12.6 km',
+        type: 'Natural Satellite',
+        distanceFromPlanet: '23,460 km',
+        orbitalPeriod: '30.3 hours',
+        surfaceTemp: '-40°C'
+    }
+};
+
+// Add expanded data objects after the existing data objects
+const expandedPlanetData = {
+    'Sun': {
+        composition: 'Primarily hydrogen (73%) and helium (25%)',
+        mass: '1.989 × 10^30 kg',
+        age: '4.6 billion years',
+        rotation: '27 days at equator',
+        atmosphere: 'Complex layers including photosphere, chromosphere, and corona',
+        magneticField: 'Extremely powerful, extends throughout solar system',
+        funFacts: [
+            'The Sun contains 99.86% of the solar system\'s mass',
+            'The core temperature is about 15 million °C',
+            'Light takes 8 minutes and 20 seconds to reach Earth'
+        ]
+    },
+    'Mercury': {
+        composition: 'Iron core (60-70%), silicate crust',
+        mass: '3.285 × 10^23 kg',
+        atmosphere: 'Extremely thin, composed mainly of oxygen, sodium, and hydrogen',
+        magneticField: 'Weak, about 1% as strong as Earth\'s',
+        craters: 'Heavily cratered surface, largest crater is Caloris Basin (1,550 km)',
+        funFacts: [
+            'Smallest planet in our solar system',
+            'Has the largest daily temperature range of any planet',
+            'Makes 3 rotations for every 2 orbits of the Sun'
+        ]
+    },
+    'Venus': {
+        composition: 'Rocky planet with thick atmosphere',
+        mass: '4.867 × 10^24 kg',
+        atmosphere: '96% carbon dioxide, extremely dense',
+        rotation: 'Retrograde rotation (east to west)',
+        volcanoes: 'Over 1,600 major volcanoes',
+        funFacts: [
+            'Hottest planet despite not being closest to Sun',
+            'Called Earth\'s sister planet due to similar size',
+            'Day is longer than its year'
+        ]
+    }
+    // ... Add more expanded data for other planets
+};
+
+const expandedSatelliteData = {
+    'Moon': {
+        composition: 'Rocky body with iron-rich core',
+        mass: '7.34767309 × 10^22 kg',
+        gravity: '1.62 m/s²',
+        atmosphere: 'Extremely thin, technically an "exosphere"',
+        formation: 'Likely formed from Earth debris after giant impact',
+        exploration: 'First visited by humans in 1969 (Apollo 11)',
+        features: [
+            'Mare (dark basaltic plains)',
+            'Highland regions',
+            'Impact craters',
+            'Rilles and valleys'
+        ],
+        funFacts: [
+            'Always shows the same face to Earth',
+            'Has moonquakes',
+            'Contains water ice in permanently shadowed craters'
+        ]
+    },
+    'Phobos': {
+        composition: 'Possibly captured asteroid',
+        mass: '1.06 × 10^16 kg',
+        gravity: '0.0057 m/s²',
+        features: [
+            'Heavily cratered surface',
+            'Covered in regolith',
+            'Notable Stickney crater'
+        ],
+        funFacts: [
+            'Will eventually crash into Mars or break apart',
+            'Orbits Mars faster than Mars rotates',
+            'Creates solar eclipses on Mars almost daily'
+        ]
+    },
+    'Deimos': {
+        composition: 'Similar to C-type asteroids',
+        mass: '1.48 × 10^15 kg',
+        gravity: '0.003 m/s²',
+        features: [
+            'Smooth surface with regolith',
+            'Two main craters: Voltaire and Swift'
+        ],
+        funFacts: [
+            'May escape Mars\'s gravity in the future',
+            'Takes 30.3 hours to orbit Mars',
+            'Appears almost stationary from Mars\'s surface'
+        ]
+    }
+};
+
 function init() {
     console.log('Initializing application...');
 
@@ -232,6 +353,12 @@ function onMouseClick(event) {
     if (intersects.length > 0) {
         const clickedObject = intersects[0].object;
         console.log('Clicked object:', clickedObject.name);
+
+        // Check if clicked object is a satellite
+        if (clickedObject.name && satelliteData[clickedObject.name]) {
+            showSatelliteInfo(clickedObject.name);
+            return;
+        }
 
         // Find the corresponding planet or sun
         if (clickedObject.name === 'Sun') {
@@ -612,11 +739,33 @@ function showPlanetInfo(planet) {
         <p><strong>Temperature:</strong> ${planetInfo.surfaceTemp}</p>
         <p>${planetInfo.description}</p>
         ${createMoonsList(planet.mesh.name)}
+        <button class="view-more-button" onclick="showExpandedInfo('${planet.mesh.name}', 'planet')">View More Details</button>
     `;
 
     infoContainer.innerHTML = content;
     document.body.appendChild(infoContainer);
-    console.log('Info panel added to document');
+
+    // Add styles for the view more button
+    const style = document.createElement('style');
+    style.textContent = `
+        .view-more-button {
+            background-color: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+
+        .view-more-button:hover {
+            background-color: #357abd;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 function createMoonsList(planetName) {
@@ -692,6 +841,74 @@ window.closeInfo = function() {
     }
 
     animateCamera();
+}
+
+function showSatelliteInfo(satelliteName) {
+    console.log('Showing info for satellite:', satelliteName);
+    const satelliteInfo = satelliteData[satelliteName];
+    if (!satelliteInfo) {
+        console.error('No data found for satellite:', satelliteName);
+        return;
+    }
+
+    // Remove any existing info panel
+    const existingInfo = document.querySelector('.satellite-info');
+    if (existingInfo) {
+        existingInfo.remove();
+    }
+
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'satellite-info';
+    
+    const content = `
+        <div class="satellite-info-header">
+            <h2>${satelliteName}</h2>
+            <button class="close-info-button" onclick="closeSatelliteInfo()">×</button>
+        </div>
+        <p><strong>Type:</strong> ${satelliteInfo.type}</p>
+        <p><strong>Diameter:</strong> ${satelliteInfo.diameter}</p>
+        <p><strong>Distance from Planet:</strong> ${satelliteInfo.distanceFromPlanet}</p>
+        <p><strong>Orbital Period:</strong> ${satelliteInfo.orbitalPeriod}</p>
+        <p><strong>Temperature:</strong> ${satelliteInfo.surfaceTemp}</p>
+        <p>${satelliteInfo.description}</p>
+        <button class="view-more-button" onclick="showExpandedInfo('${satelliteName}', 'satellite')">View More Details</button>
+    `;
+
+    infoContainer.innerHTML = content;
+    document.body.appendChild(infoContainer);
+
+    // Add styles for the view more button
+    const style = document.createElement('style');
+    style.textContent = `
+        .view-more-button {
+            background-color: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+
+        .view-more-button:hover {
+            background-color: #357abd;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Add closeSatelliteInfo function to window object
+window.closeSatelliteInfo = function() {
+    const infoPanel = document.querySelector('.satellite-info');
+    if (infoPanel) {
+        infoPanel.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        infoPanel.style.opacity = '0';
+        infoPanel.style.transform = 'translateX(100%)';
+        setTimeout(() => infoPanel.remove(), 300);
+    }
 }
 
 function onWindowResize() {
@@ -802,4 +1019,195 @@ window.returnToSolarSystem = function() {
     }
 
     animateCamera();
+}
+
+// Add showExpandedInfo function to window object
+window.showExpandedInfo = function(name, type) {
+    console.log('Showing expanded info for:', name, type);
+    const data = type === 'planet' ? expandedPlanetData[name] : expandedSatelliteData[name];
+    if (!data) {
+        console.log('No expanded data found for:', name);
+        return;
+    }
+
+    // Remove any existing expanded info panel
+    const existingPanel = document.querySelector('.expanded-info');
+    if (existingPanel) {
+        existingPanel.remove();
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'expanded-info';
+
+    let content = `
+        <div class="expanded-info-header">
+            <h2>${name} - Detailed Information</h2>
+            <button class="close-expanded-info" onclick="closeExpandedInfo()">×</button>
+        </div>
+        <div class="expanded-info-content">
+    `;
+
+    // Add all available data fields
+    for (const [key, value] of Object.entries(data)) {
+        if (Array.isArray(value)) {
+            content += `<div class="info-section">
+                <h3>${key.charAt(0).toUpperCase() + key.slice(1)}</h3>
+                <ul>
+                    ${value.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            </div>`;
+        } else {
+            content += `<div class="info-section">
+                <h3>${key.charAt(0).toUpperCase() + key.slice(1)}</h3>
+                <p>${value}</p>
+            </div>`;
+        }
+    }
+
+    content += `</div>`;
+    panel.innerHTML = content;
+    document.body.appendChild(panel);
+
+    // Add styles for expanded info panel if they don't exist
+    if (!document.querySelector('#expanded-info-styles')) {
+        const style = document.createElement('style');
+        style.id = 'expanded-info-styles';
+        style.textContent = `
+            .expanded-info {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 80%;
+                max-width: 800px;
+                max-height: 90vh;
+                background-color: rgba(0, 0, 0, 0.95);
+                color: white;
+                padding: 30px;
+                border-radius: 15px;
+                font-family: Arial, sans-serif;
+                z-index: 2000;
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                animation: fadeIn 0.3s ease-out;
+                overflow-y: auto;
+            }
+
+            .expanded-info-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                position: sticky;
+                top: 0;
+                background-color: rgba(0, 0, 0, 0.95);
+                padding: 10px 0;
+                z-index: 2001;
+            }
+
+            .expanded-info h2 {
+                margin: 0;
+                color: #4a9eff;
+                font-size: 24px;
+            }
+
+            .expanded-info-content {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+            }
+
+            .info-section {
+                background-color: rgba(255, 255, 255, 0.1);
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 10px;
+            }
+
+            .info-section h3 {
+                color: #4a9eff;
+                margin: 0 0 10px 0;
+            }
+
+            .info-section ul {
+                margin: 0;
+                padding-left: 20px;
+                list-style-type: disc;
+            }
+
+            .info-section li {
+                margin: 5px 0;
+                color: #ffffff;
+            }
+
+            .info-section p {
+                margin: 0;
+                color: #ffffff;
+                line-height: 1.4;
+            }
+
+            .close-expanded-info {
+                background: none;
+                border: none;
+                color: #4a9eff;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 5px 10px;
+                transition: color 0.3s;
+            }
+
+            .close-expanded-info:hover {
+                color: #fff;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%, -45%);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate(-50%, -50%);
+                }
+            }
+
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                    transform: translate(-50%, -50%);
+                }
+                to {
+                    opacity: 0;
+                    transform: translate(-50%, -45%);
+                }
+            }
+
+            .view-more-button {
+                background-color: #4a9eff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                margin-top: 15px;
+                font-size: 14px;
+                transition: background-color 0.3s;
+                width: 100%;
+            }
+
+            .view-more-button:hover {
+                background-color: #357abd;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Add closeExpandedInfo function to window object
+window.closeExpandedInfo = function() {
+    const panel = document.querySelector('.expanded-info');
+    if (panel) {
+        panel.style.animation = 'fadeOut 0.3s ease-out';
+        setTimeout(() => panel.remove(), 300);
+    }
 } 
