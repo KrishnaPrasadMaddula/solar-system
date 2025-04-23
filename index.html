@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            z-index: 9999;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            pointer-events: none;
+        }
+        #backButton {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+            z-index: 1000;
+            font-size: 16px;
+        }
+        #backButton:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .planet-info-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            width: 300px;
+            display: none;
+            z-index: 1000;
+        }
+        .planet-info-panel h2 {
+            margin: 0 0 15px 0;
+            color: #ffd700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        .planet-info-panel .info-row {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .planet-info-panel .label {
+            color: #aaa;
+            margin-right: 10px;
+        }
+        .planet-info-panel .value {
+            color: white;
+            text-align: right;
+        }
+        .planet-info-panel .description {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            line-height: 1.4;
+        }
+        .planet-info-panel .moons-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .planet-info-panel .moons-title {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+        .planet-info-panel .moons-list {
+            columns: 2;
+            column-gap: 20px;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .planet-info-panel .moons-list li {
+            margin-bottom: 5px;
+            color: #ddd;
+        }
+        .planet-name {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading Solar System...</div>
+    <div id="info">Solar System Visualization<br>Click on any planet to see detailed view</div>
+    <button id="backButton">← Back to Solar System</button>
+    <div id="planetName" class="planet-name"></div>
+    <div id="planetInfoPanel" class="planet-info-panel">
+        <h2 id="planetTitle"></h2>
+        <div class="info-row">
+            <span class="label">Type:</span>
+            <span class="value" id="planetType"></span>
+        </div>
+        <div class="info-row">
+            <span class="label">Diameter:</span>
+            <span class="value" id="planetDiameter"></span>
+        </div>
+        <div class="info-row">
+            <span class="label">Distance from Sun:</span>
+            <span class="value" id="planetDistance"></span>
+        </div>
+        <div class="info-row">
+            <span class="label">Orbital Period:</span>
+            <span class="value" id="planetPeriod"></span>
+        </div>
+        <div class="info-row">
+            <span class="label">Surface Temperature:</span>
+            <span class="value" id="planetTemp"></span>
+        </div>
+        <div class="description" id="planetDescription"></div>
+        <div class="moons-section">
+            <div class="moons-title">Major Moons:</div>
+            <ul class="moons-list" id="planetMoons"></ul>
+        </div>
+    </div>
+    <script type="module" src="/main.js"></script>
+</body>
+</html> 
