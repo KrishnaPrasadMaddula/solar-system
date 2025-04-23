@@ -19,6 +19,7 @@ let focusedPlanet = null;
 let isTransitioning = false;
 let isAnimationPaused = false;
 let lastPlanetPositions = [];
+let orbitLines = []; // Array to store orbit lines
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
@@ -155,23 +156,31 @@ function init() {
     // Controls setup
     controls = new OrbitControls(camera, labelRenderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.minDistance = 20;
+    controls.dampingFactor = 0.15;
+    controls.minDistance = 10;
     controls.maxDistance = 500;
-    controls.maxPolarAngle = Math.PI / 2; // Limit rotation to prevent going below the plane
-    controls.minPolarAngle = 0; // Allow full rotation to top view
+    controls.rotateSpeed = 0.5;
+    controls.zoomSpeed = 0.8;
+    controls.panSpeed = 0.5;
+    controls.maxPolarAngle = Math.PI * 0.85;
+    controls.minPolarAngle = 0.1;
+    controls.enablePan = true;
     controls.update();
 
     // Store initial camera position for reset
     initialCameraPosition = { x: 0, y: 300, z: 0 };
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
+
+    // Add a hemisphere light for better overall illumination
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+    scene.add(hemisphereLight);
 
     console.log('Setting up celestial bodies...');
 
@@ -196,6 +205,8 @@ function init() {
 }
 
 function onMouseClick(event) {
+    if (isTransitioning) return;
+    
     console.log('Click detected');
     
     // Calculate mouse position
@@ -224,7 +235,7 @@ function onMouseClick(event) {
 
         // Find the corresponding planet or sun
         if (clickedObject.name === 'Sun') {
-            showPlanetInfo({ mesh: clickedObject });
+            focusOnPlanet({ mesh: clickedObject });
         } else {
             const planet = planets.find(p => 
                 p.mesh === clickedObject || 
@@ -233,7 +244,7 @@ function onMouseClick(event) {
             );
             if (planet) {
                 console.log('Found planet:', planet.mesh.name);
-                showPlanetInfo(planet);
+                focusOnPlanet(planet);
             }
         }
     }
@@ -295,6 +306,7 @@ function createLabel(name) {
 }
 
 function createOrbitLine(radius) {
+    // Create the main orbit line
     const curve = new THREE.EllipseCurve(
         0, 0,
         radius, radius,
@@ -303,17 +315,45 @@ function createOrbitLine(radius) {
         0
     );
 
-    const points = curve.getPoints(50);
+    const points = curve.getPoints(200); // More points for smoother line
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    
+    // Create the main visible line
     const material = new THREE.LineBasicMaterial({ 
-        color: 0x666666,
+        color: 0x00ffff,
         transparent: true,
-        opacity: 0.5
+        opacity: 0.6,
+        linewidth: 2
     });
     const ellipse = new THREE.Line(geometry, material);
     ellipse.rotation.x = Math.PI / 2;
-    scene.add(ellipse);
-    return ellipse;
+
+    // Create a wider glow line
+    const glowMaterial = new THREE.LineBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.2,
+        linewidth: 4
+    });
+    const glowLine = new THREE.Line(geometry, glowMaterial);
+    glowLine.rotation.x = Math.PI / 2;
+    glowLine.scale.multiplyScalar(1.002); // Slightly larger radius for glow effect
+
+    // Create group to hold both lines
+    const orbitGroup = new THREE.Group();
+    orbitGroup.add(ellipse);
+    orbitGroup.add(glowLine);
+    
+    // Store reference to materials for animation
+    orbitGroup.userData = {
+        mainMaterial: material,
+        glowMaterial: glowMaterial,
+        pulseTime: Math.random() * Math.PI * 2 // Random start time for each orbit
+    };
+
+    scene.add(orbitGroup);
+    orbitLines.push(orbitGroup); // Add to array for animation
+    return orbitGroup;
 }
 
 function createPlanet(name, radius, color, orbitRadius, orbitSpeed) {
@@ -358,68 +398,146 @@ function createPlanet(name, radius, color, orbitRadius, orbitSpeed) {
     return planet;
 }
 
-function createMoons() {
-    // Add Earth's moon
-    createSatellite(planets[2], '', 1.5, 0xcccccc, 8, 0.004);
-
-    // Add Mars' moons
-    createSatellite(planets[3], '', 1.2, 0xcccccc, 4, 0.005);
-    createSatellite(planets[3], '', 1.2, 0xcccccc, 6, 0.004);
-
-    // Add Jupiter's moons
-    for (let i = 0; i < 4; i++) {
-        createSatellite(planets[4], '', 1.5, 0xcccccc, 12 + i * 3, 0.003);
-    }
-
-    // Add Saturn's moons
-    const saturnMoonData = [
-        { radius: 1.5, orbit: 13, speed: 0.0024 },
-        { radius: 1.2, orbit: 16, speed: 0.002 },
-        { radius: 1.2, orbit: 19, speed: 0.0018 },
-        { radius: 1.2, orbit: 11, speed: 0.0028 },
-        { radius: 1.2, orbit: 14, speed: 0.0022 },
-        { radius: 1.2, orbit: 17, speed: 0.002 }
-    ];
-
-    saturnMoonData.forEach(moon => {
-        createSatellite(planets[5], '', moon.radius, 0xcccccc, moon.orbit, moon.speed);
-    });
-}
-
 function createSatellite(planet, name, radius, color, orbitRadius, orbitSpeed) {
     if (!scene || !planet) return;
 
+    // Simple satellite size relative to planet
+    const satelliteRadius = planet.mesh.geometry.parameters.radius * 0.2;
+    
+    // Keep satellites at a good distance from their planet
+    const adjustedOrbitRadius = planet.mesh.geometry.parameters.radius * 2.5;
+
     const satellite = {
         mesh: new THREE.Mesh(
-            new THREE.SphereGeometry(radius, 32, 32),
+            new THREE.SphereGeometry(satelliteRadius, 32, 32),
             new THREE.MeshPhongMaterial({ 
                 color: color,
                 shininess: 30
             })
         ),
-        orbitRadius: orbitRadius,
+        orbitRadius: adjustedOrbitRadius,
         angle: Math.random() * Math.PI * 2,
-        speed: orbitSpeed
+        speed: orbitSpeed * 0.5 // Moderate speed
     };
     
+    satellite.mesh.name = name || 'moon';
     scene.add(satellite.mesh);
+    
     if (!planet.satellites) {
         planet.satellites = [];
     }
     planet.satellites.push(satellite);
+
+    // Create orbit line for satellite
+    const curve = new THREE.EllipseCurve(
+        0, 0,
+        adjustedOrbitRadius, adjustedOrbitRadius,
+        0, 2 * Math.PI,
+        false,
+        0
+    );
+
+    const points = curve.getPoints(50);
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ 
+        color: 0x666666,
+        transparent: true,
+        opacity: 0.3
+    });
+    const orbitLine = new THREE.Line(geometry, material);
+    orbitLine.rotation.x = Math.PI / 2;
+    planet.mesh.add(orbitLine);
+}
+
+function createMoons() {
+    // Add Earth's moon
+    createSatellite(planets[2], 'Moon', 1.5, 0xcccccc, 8, 0.003);
+
+    // Add Mars' moons
+    createSatellite(planets[3], 'Phobos', 1.2, 0xcccccc, 4, 0.004);
+    createSatellite(planets[3], 'Deimos', 1.2, 0xcccccc, 6, 0.003);
+
+    // Add Jupiter's moons
+    for (let i = 0; i < 4; i++) {
+        createSatellite(planets[4], 'Moon ' + (i + 1), 1.5, 0xcccccc, 12 + i * 3, 0.002);
+    }
+
+    // Add Saturn's moons
+    const saturnMoonData = [
+        { radius: 1.5, orbit: 13, speed: 0.002 },
+        { radius: 1.2, orbit: 16, speed: 0.0015 },
+        { radius: 1.2, orbit: 19, speed: 0.001 },
+        { radius: 1.2, orbit: 11, speed: 0.0025 },
+        { radius: 1.2, orbit: 14, speed: 0.002 },
+        { radius: 1.2, orbit: 17, speed: 0.0015 }
+    ];
+
+    saturnMoonData.forEach((moon, index) => {
+        createSatellite(planets[5], 'Moon ' + (index + 1), moon.radius, 0xcccccc, moon.orbit, moon.speed);
+    });
 }
 
 function focusOnPlanet(planet) {
     if (!planet || isTransitioning) return;
     
-    // Don't change camera or planet positions
+    console.log('Focusing on planet:', planet.mesh.name);
     isTransitioning = true;
     focusedPlanet = planet;
 
-    // Show planet info
-    showPlanetInfo(planet);
+    // Calculate target position for camera
+    const planetPosition = planet.mesh.position.clone();
+    const radius = planet.mesh.geometry.parameters.radius;
+    const zoomDistance = radius * 4; // Slightly further for smoother feel
+    
+    // Calculate camera position with a more dynamic angle
+    const targetPosition = new THREE.Vector3(
+        planetPosition.x + zoomDistance * Math.cos(Math.PI / 4),
+        zoomDistance * Math.sin(Math.PI / 4),
+        planetPosition.z + zoomDistance * Math.cos(Math.PI / 4)
+    );
 
-    isTransitioning = false;
+    // Store initial camera position and rotation
+    const startPosition = camera.position.clone();
+    const startRotation = camera.rotation.clone();
+
+    // Calculate target rotation to look at planet
+    const tempCamera = camera.clone();
+    tempCamera.position.copy(targetPosition);
+    tempCamera.lookAt(planetPosition);
+    const targetRotation = tempCamera.rotation.clone();
+
+    // Animation duration in milliseconds
+    const duration = 1800; // Longer duration for smoother feel
+    const startTime = Date.now();
+
+    function animateCamera() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Custom easing function for smoother acceleration and deceleration
+        const easing = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+
+        // Interpolate position with easing
+        camera.position.lerpVectors(startPosition, targetPosition, easing);
+
+        // Interpolate rotation with easing
+        camera.rotation.x = startRotation.x + (targetRotation.x - startRotation.x) * easing;
+        camera.rotation.y = startRotation.y + (targetRotation.y - startRotation.y) * easing;
+        camera.rotation.z = startRotation.z + (targetRotation.z - startRotation.z) * easing;
+
+        if (progress < 1) {
+            requestAnimationFrame(animateCamera);
+        } else {
+            isTransitioning = false;
+            controls.target.copy(planetPosition);
+            controls.update();
+            
+            // Show planet info after animation
+            showPlanetInfo(planet);
+        }
+    }
+
+    animateCamera();
 }
 
 function createMoonSystem(planet) {
@@ -517,11 +635,63 @@ function createMoonsList(planetName) {
 
 // Add closeInfo function to window object
 window.closeInfo = function() {
-    console.log('Closing info panel');
+    console.log('Closing info panel and returning to top view');
     const infoPanel = document.querySelector('.planet-info');
     if (infoPanel) {
-        infoPanel.remove();
+        // Add fade-out animation
+        infoPanel.style.transition = 'opacity 0.5s ease-out';
+        infoPanel.style.opacity = '0';
+        setTimeout(() => infoPanel.remove(), 500);
     }
+    
+    // Return to top view
+    if (isTransitioning) return;
+    
+    isTransitioning = true;
+    
+    // Store initial camera position and rotation
+    const startPosition = camera.position.clone();
+    const startRotation = camera.rotation.clone();
+    
+    // Target position is directly above
+    const targetPosition = new THREE.Vector3(0, 300, 0);
+    
+    // Calculate target rotation (looking straight down)
+    const tempCamera = camera.clone();
+    tempCamera.position.copy(targetPosition);
+    tempCamera.lookAt(new THREE.Vector3(0, 0, 0));
+    const targetRotation = tempCamera.rotation.clone();
+
+    // Animation duration in milliseconds
+    const duration = 1800;
+    const startTime = Date.now();
+
+    function animateCamera() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Custom easing function for smoother acceleration and deceleration
+        const easing = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+
+        // Interpolate position with smooth easing
+        camera.position.lerpVectors(startPosition, targetPosition, easing);
+
+        // Interpolate rotation with smooth easing
+        camera.rotation.x = startRotation.x + (targetRotation.x - startRotation.x) * easing;
+        camera.rotation.y = startRotation.y + (targetRotation.y - startRotation.y) * easing;
+        camera.rotation.z = startRotation.z + (targetRotation.z - startRotation.z) * easing;
+
+        if (progress < 1) {
+            requestAnimationFrame(animateCamera);
+        } else {
+            isTransitioning = false;
+            focusedPlanet = null;
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+    }
+
+    animateCamera();
 }
 
 function onWindowResize() {
@@ -534,7 +704,16 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
 
-    if (!isAnimationPaused) {
+    // Animate orbit lines
+    const time = Date.now() * 0.001; // Current time in seconds
+    orbitLines.forEach((orbitGroup) => {
+        const pulseFactor = Math.sin(time * 2 + orbitGroup.userData.pulseTime) * 0.2 + 0.8; // Pulsing between 0.6 and 1.0
+        orbitGroup.userData.mainMaterial.opacity = 0.6 * pulseFactor;
+        orbitGroup.userData.glowMaterial.opacity = 0.2 * pulseFactor;
+    });
+
+    if (!isTransitioning && !focusedPlanet) {
+        // Only animate planets when not focused on any planet
         planets.forEach(planet => {
             planet.angle += planet.speed;
             planet.mesh.position.x = Math.cos(planet.angle) * planet.orbitRadius;
@@ -549,8 +728,8 @@ function animate() {
             });
         });
     } else if (focusedPlanet) {
-        // Keep only the focused planet's moons rotating
-        focusedPlanet.satellites.forEach(satellite => {
+        // When focused on a planet, only animate its moons
+        focusedPlanet.satellites?.forEach(satellite => {
             satellite.angle += satellite.speed;
             const satelliteX = Math.cos(satellite.angle) * satellite.orbitRadius;
             const satelliteZ = Math.sin(satellite.angle) * satellite.orbitRadius;
@@ -565,4 +744,62 @@ function animate() {
 }
 
 // Initialize everything when the DOM is loaded
-document.addEventListener('DOMContentLoaded', init); 
+document.addEventListener('DOMContentLoaded', init);
+
+window.returnToSolarSystem = function() {
+    if (isTransitioning) return;
+    
+    isTransitioning = true;
+    
+    // Store initial camera position and rotation
+    const startPosition = camera.position.clone();
+    const startRotation = camera.rotation.clone();
+    
+    // Target position is the initial overview position
+    const targetPosition = new THREE.Vector3(0, 300, 0);
+    
+    // Calculate target rotation (looking down at solar system)
+    const tempCamera = camera.clone();
+    tempCamera.position.copy(targetPosition);
+    tempCamera.lookAt(new THREE.Vector3(0, 0, 0));
+    const targetRotation = tempCamera.rotation.clone();
+
+    // Animation duration in milliseconds
+    const duration = 1500;
+    const startTime = Date.now();
+
+    function animateCamera() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Smooth easing function
+        const easing = progress < 0.5
+            ? 2 * progress * progress
+            : -1 + (4 - 2 * progress) * progress;
+
+        // Interpolate position
+        camera.position.lerpVectors(startPosition, targetPosition, easing);
+
+        // Interpolate rotation
+        camera.rotation.x = startRotation.x + (targetRotation.x - startRotation.x) * easing;
+        camera.rotation.y = startRotation.y + (targetRotation.y - startRotation.y) * easing;
+        camera.rotation.z = startRotation.z + (targetRotation.z - startRotation.z) * easing;
+
+        if (progress < 1) {
+            requestAnimationFrame(animateCamera);
+        } else {
+            isTransitioning = false;
+            focusedPlanet = null;
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+            // Remove planet info panel
+            const infoPanel = document.querySelector('.planet-info');
+            if (infoPanel) {
+                infoPanel.remove();
+            }
+        }
+    }
+
+    animateCamera();
+} 
