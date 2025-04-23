@@ -136,7 +136,8 @@ function init() {
 
     // Camera setup
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 100, 200);
+    camera.position.set(0, 300, 0); // Position camera directly above
+    camera.lookAt(0, 0, 0);
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -156,9 +157,13 @@ function init() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = 20;
-    controls.maxDistance = 1000;
-    camera.lookAt(0, 0, 0);
+    controls.maxDistance = 500;
+    controls.maxPolarAngle = Math.PI / 2; // Limit rotation to prevent going below the plane
+    controls.minPolarAngle = 0; // Allow full rotation to top view
     controls.update();
+
+    // Store initial camera position for reset
+    initialCameraPosition = { x: 0, y: 300, z: 0 };
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -178,14 +183,7 @@ function init() {
     // Event listeners
     console.log('Setting up event listeners...');
     window.addEventListener('resize', onWindowResize);
-    
-    // Remove any existing click listeners
-    renderer.domElement.removeEventListener('click', onMouseClick);
-    labelRenderer.domElement.removeEventListener('click', onMouseClick);
-    
-    // Add click listeners to both renderers
-    renderer.domElement.addEventListener('click', onMouseClick, false);
-    labelRenderer.domElement.addEventListener('click', onMouseClick, false);
+    window.addEventListener('click', onMouseClick);
 
     // Hide loading message
     const loadingElement = document.getElementById('loading');
@@ -198,70 +196,87 @@ function init() {
 }
 
 function onMouseClick(event) {
-    event.preventDefault();
-    event.stopPropagation();
+    console.log('Click detected');
     
-    if (isTransitioning) {
-        return;
-    }
-
-    const rect = event.target.getBoundingClientRect();
+    // Calculate mouse position
+    const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+    // Update the picking ray with the camera and mouse position
     raycaster.setFromCamera(mouse, camera);
-    
-    // First, try to find direct intersections with planets
-    const planetMeshes = planets.map(planet => planet.mesh);
-    const intersects = raycaster.intersectObjects(planetMeshes, true);
+
+    // Get all meshes in the scene that could be clicked
+    const clickableMeshes = [];
+    scene.traverse((object) => {
+        if (object.isMesh) {
+            clickableMeshes.push(object);
+        }
+    });
+
+    // Calculate intersections
+    const intersects = raycaster.intersectObjects(clickableMeshes, true);
+    console.log('Intersections found:', intersects.length);
 
     if (intersects.length > 0) {
         const clickedObject = intersects[0].object;
-        const planet = planets.find(p => p.mesh === clickedObject || p.mesh.children.includes(clickedObject));
-        if (planet) {
-            focusOnPlanet(planet);
-            return;
-        }
-    }
+        console.log('Clicked object:', clickedObject.name);
 
-    // If no planet was found, check for the Sun
-    const sunIntersects = raycaster.intersectObject(scene.children.find(obj => obj.name === 'Sun'), true);
-    if (sunIntersects.length > 0) {
-        const sun = scene.children.find(obj => obj.name === 'Sun');
-        if (sun) {
-            focusOnPlanet({ mesh: sun });
+        // Find the corresponding planet or sun
+        if (clickedObject.name === 'Sun') {
+            showPlanetInfo({ mesh: clickedObject });
+        } else {
+            const planet = planets.find(p => 
+                p.mesh === clickedObject || 
+                p.mesh.children.includes(clickedObject) ||
+                (p.satellites && p.satellites.some(s => s.mesh === clickedObject))
+            );
+            if (planet) {
+                console.log('Found planet:', planet.mesh.name);
+                showPlanetInfo(planet);
+            }
         }
     }
 }
 
 function createSun() {
-    const sunGeometry = new THREE.SphereGeometry(8, 32, 32);
-    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const sunGeometry = new THREE.SphereGeometry(20, 32, 32);
+    const sunMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffdd00,
+        emissive: 0xffff00,
+        emissiveIntensity: 0.5
+    });
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
     sun.name = 'Sun';
     scene.add(sun);
 
     const sunLabel = createLabel('Sun');
-    sunLabel.position.x = 10;
+    sunLabel.position.x = 22;
     sunLabel.position.y = 0;
     sun.add(sunLabel);
 }
 
 function createPlanets() {
     const planetConfigs = [
-        { name: 'Mercury', radius: 2, color: 0x808080, orbit: 20, speed: 0.002 },
-        { name: 'Venus', radius: 3, color: 0xffd700, orbit: 35, speed: 0.0015 },
-        { name: 'Earth', radius: 3, color: 0x4169e1, orbit: 50, speed: 0.001 },
-        { name: 'Mars', radius: 2.5, color: 0xff4500, orbit: 65, speed: 0.0008 },
-        { name: 'Jupiter', radius: 6, color: 0xffa500, orbit: 85, speed: 0.0005 },
-        { name: 'Saturn', radius: 5, color: 0xffd700, orbit: 100, speed: 0.0004 },
-        { name: 'Uranus', radius: 4, color: 0x00ffff, orbit: 115, speed: 0.0003 },
-        { name: 'Neptune', radius: 4, color: 0x4169e1, orbit: 130, speed: 0.0002 },
-        { name: 'Pluto ☄️', radius: 1.5, color: 0x8B4513, orbit: 150, speed: 0.0001 }
+        { name: 'Mercury', radius: 7.0, color: 0xa5a5a5, orbit: 28, speed: 0.004 },
+        { name: 'Venus', radius: 7.0, color: 0xffd085, orbit: 40, speed: 0.003 },
+        { name: 'Earth', radius: 7.0, color: 0x2b34b2, orbit: 55, speed: 0.002 },
+        { name: 'Mars', radius: 7.0, color: 0xc1440e, orbit: 75, speed: 0.0016 },
+        { name: 'Jupiter', radius: 7.0, color: 0xd8ca9d, orbit: 100, speed: 0.001 },
+        { name: 'Saturn', radius: 7.0, color: 0xead6b8, orbit: 138, speed: 0.0008 },
+        { name: 'Uranus', radius: 7.0, color: 0x82b3d1, orbit: 176, speed: 0.0006 },
+        { name: 'Neptune', radius: 7.0, color: 0x2b67b2, orbit: 200, speed: 0.0004 },
+        { name: 'Pluto ☄️', radius: 7.0, color: 0x7c6a5c, orbit: 230, speed: 0.0002 }
     ];
 
     planets = planetConfigs.map(config => {
-        const planet = createPlanet(config.name, config.radius, config.color, config.orbit, config.speed);
+        const planet = createPlanet(
+            config.name,
+            config.radius,
+            config.color,
+            config.orbit,
+            config.speed
+        );
         createOrbitLine(config.orbit);
         return planet;
     });
@@ -290,7 +305,11 @@ function createOrbitLine(radius) {
 
     const points = curve.getPoints(50);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0x666666 });
+    const material = new THREE.LineBasicMaterial({ 
+        color: 0x666666,
+        transparent: true,
+        opacity: 0.5
+    });
     const ellipse = new THREE.Line(geometry, material);
     ellipse.rotation.x = Math.PI / 2;
     scene.add(ellipse);
@@ -302,9 +321,25 @@ function createPlanet(name, radius, color, orbitRadius, orbitSpeed) {
     const material = new THREE.MeshPhongMaterial({ 
         color: color,
         shininess: 30,
+        specular: new THREE.Color(0x333333)
     });
+
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = name;
+
+    // Add rings for Saturn
+    if (name === 'Saturn') {
+        const ringGeometry = new THREE.RingGeometry(radius * 1.4, radius * 2.2, 64);
+        const ringMaterial = new THREE.MeshPhongMaterial({
+            color: 0xc5a880,
+            side: THREE.DoubleSide,
+            opacity: 0.8,
+            transparent: true
+        });
+        const rings = new THREE.Mesh(ringGeometry, ringMaterial);
+        rings.rotation.x = Math.PI / 2;
+        mesh.add(rings);
+    }
 
     const planet = {
         mesh: mesh,
@@ -314,7 +349,6 @@ function createPlanet(name, radius, color, orbitRadius, orbitSpeed) {
         satellites: []
     };
 
-    // Add planet label
     const label = createLabel(name);
     label.position.x = radius + 2;
     label.position.y = 0;
@@ -326,25 +360,25 @@ function createPlanet(name, radius, color, orbitRadius, orbitSpeed) {
 
 function createMoons() {
     // Add Earth's moon
-    createSatellite(planets[2], '', 1, 0xcccccc, 8, 0.002);
+    createSatellite(planets[2], '', 1.5, 0xcccccc, 8, 0.004);
 
     // Add Mars' moons
-    createSatellite(planets[3], '', 0.5, 0xcccccc, 4, 0.0025);
-    createSatellite(planets[3], '', 0.4, 0xcccccc, 6, 0.002);
+    createSatellite(planets[3], '', 1.2, 0xcccccc, 4, 0.005);
+    createSatellite(planets[3], '', 1.2, 0xcccccc, 6, 0.004);
 
     // Add Jupiter's moons
     for (let i = 0; i < 4; i++) {
-        createSatellite(planets[4], '', 1.2, 0xcccccc, 12 + i * 3, 0.0015);
+        createSatellite(planets[4], '', 1.5, 0xcccccc, 12 + i * 3, 0.003);
     }
 
     // Add Saturn's moons
     const saturnMoonData = [
-        { radius: 1.6, orbit: 13, speed: 0.0012 },
-        { radius: 1.0, orbit: 16, speed: 0.001 },
-        { radius: 0.9, orbit: 19, speed: 0.0009 },
-        { radius: 0.8, orbit: 11, speed: 0.0014 },
-        { radius: 0.9, orbit: 14, speed: 0.0011 },
-        { radius: 0.8, orbit: 17, speed: 0.001 }
+        { radius: 1.5, orbit: 13, speed: 0.0024 },
+        { radius: 1.2, orbit: 16, speed: 0.002 },
+        { radius: 1.2, orbit: 19, speed: 0.0018 },
+        { radius: 1.2, orbit: 11, speed: 0.0028 },
+        { radius: 1.2, orbit: 14, speed: 0.0022 },
+        { radius: 1.2, orbit: 17, speed: 0.002 }
     ];
 
     saturnMoonData.forEach(moon => {
@@ -376,133 +410,118 @@ function createSatellite(planet, name, radius, color, orbitRadius, orbitSpeed) {
 }
 
 function focusOnPlanet(planet) {
-    if (!planet || isTransitioning) {
-        console.log('Focus cancelled:', !planet ? 'no planet' : 'transition in progress');
-        return;
-    }
+    if (!planet || isTransitioning) return;
     
-    console.log('Focusing on:', planet.mesh.name);
+    // Don't change camera or planet positions
     isTransitioning = true;
     focusedPlanet = planet;
 
     // Show planet info
-    showPlanetInfo(planet.mesh.name);
+    showPlanetInfo(planet);
 
-    // Calculate new camera position
-    const radius = planet.mesh.geometry.parameters.radius;
-    const distance = radius * (planet.mesh.name === 'Sun' ? 15 : 10);
-    const newPosition = {
-        x: planet.mesh.position.x,
-        y: distance,
-        z: planet.mesh.position.z + distance
-    };
-
-    // Store current camera position
-    const startPosition = { ...camera.position };
-    const duration = 1000;
-    const startTime = Date.now();
-
-    // Pause animation and store positions
-    isAnimationPaused = true;
-    storePlanetPositions();
-
-    function animateCamera() {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-
-        camera.position.x = startPosition.x + (newPosition.x - startPosition.x) * easeProgress;
-        camera.position.y = startPosition.y + (newPosition.y - startPosition.y) * easeProgress;
-        camera.position.z = startPosition.z + (newPosition.z - startPosition.z) * easeProgress;
-
-        camera.lookAt(planet.mesh.position);
-        controls.target.copy(planet.mesh.position);
-
-        if (progress < 1) {
-            requestAnimationFrame(animateCamera);
-        } else {
-            isTransitioning = false;
-            const backButton = document.getElementById('backButton');
-            if (backButton) backButton.style.display = 'block';
-            console.log('Focus complete on:', planet.mesh.name);
-        }
-    }
-
-    animateCamera();
+    isTransitioning = false;
 }
 
-function returnToSolarSystem() {
-    if (isTransitioning) return;
-
-    isTransitioning = true;
-
-    // Hide planet info panel
-    const infoPanel = document.getElementById('planetInfoPanel');
-    if (infoPanel) infoPanel.style.display = 'none';
-
-    const startPosition = { ...camera.position };
-    const duration = 1000;
-    const startTime = Date.now();
-
-    function animateCamera() {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-
-        camera.position.x = startPosition.x + (initialCameraPosition.x - startPosition.x) * easeProgress;
-        camera.position.y = startPosition.y + (initialCameraPosition.y - startPosition.y) * easeProgress;
-        camera.position.z = startPosition.z + (initialCameraPosition.z - startPosition.z) * easeProgress;
-
-        camera.lookAt(0, 0, 0);
-        controls.target.set(0, 0, 0);
-
-        if (progress < 1) {
-            requestAnimationFrame(animateCamera);
-        } else {
-            isTransitioning = false;
-            focusedPlanet = null;
-            
-            const backButton = document.getElementById('backButton');
-            if (backButton) backButton.style.display = 'none';
-            
-            // Resume animation
-            isAnimationPaused = false;
+function createMoonSystem(planet) {
+    // Clear any existing moon orbits
+    scene.children.forEach(child => {
+        if (child.isMoonOrbit) {
+            scene.remove(child);
         }
-    }
+    });
 
-    animateCamera();
-}
+    if (!planet.satellites || planet.satellites.length === 0) return;
 
-function showPlanetInfo(planetName) {
-    const planet = planetData[planetName];
-    if (!planet) return;
+    // Create orbit paths for moons
+    planet.satellites.forEach((moon, index) => {
+        // Create orbit line
+        const curve = new THREE.EllipseCurve(
+            0, 0,
+            moon.orbitRadius, moon.orbitRadius,
+            0, 2 * Math.PI,
+            false,
+            0
+        );
 
-    const infoPanel = document.getElementById('planetInfoPanel');
-    document.getElementById('planetTitle').textContent = planetName;
-    document.getElementById('planetType').textContent = planet.type;
-    document.getElementById('planetDiameter').textContent = planet.diameter;
-    document.getElementById('planetDistance').textContent = planet.distanceFromSun;
-    document.getElementById('planetPeriod').textContent = planet.orbitalPeriod;
-    document.getElementById('planetTemp').textContent = planet.surfaceTemp;
-    document.getElementById('planetDescription').textContent = planet.description;
-
-    // Display moons if any
-    const moonsList = document.getElementById('planetMoons');
-    moonsList.innerHTML = '';
-    const moons = moonData[planetName] || [];
-    if (moons.length > 0) {
-        moons.forEach(moon => {
-            const li = document.createElement('li');
-            li.textContent = moon;
-            moonsList.appendChild(li);
+        const points = curve.getPoints(50);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ 
+            color: 0x4444ff,
+            opacity: 0.5,
+            transparent: true 
         });
-    } else {
-        const li = document.createElement('li');
-        li.textContent = 'No moons';
-        moonsList.appendChild(li);
+        
+        const orbitLine = new THREE.Line(geometry, material);
+        orbitLine.rotation.x = Math.PI / 2;
+        orbitLine.isMoonOrbit = true;
+        scene.add(orbitLine);
+
+        // Position moon
+        moon.mesh.position.set(
+            moon.orbitRadius * Math.cos(moon.angle),
+            0,
+            moon.orbitRadius * Math.sin(moon.angle)
+        );
+    });
+}
+
+function showPlanetInfo(planet) {
+    console.log('Showing info for:', planet.mesh.name);
+    const planetInfo = planetData[planet.mesh.name];
+    if (!planetInfo) {
+        console.error('No data found for planet:', planet.mesh.name);
+        return;
     }
 
-    infoPanel.style.display = 'block';
+    // Remove any existing info panel
+    const existingInfo = document.querySelector('.planet-info');
+    if (existingInfo) {
+        existingInfo.remove();
+    }
+
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'planet-info';
+    
+    const content = `
+        <div class="planet-info-header">
+            <h2>${planet.mesh.name}</h2>
+            <button class="close-info-button" onclick="closeInfo()">×</button>
+        </div>
+        <p><strong>Type:</strong> ${planetInfo.type}</p>
+        <p><strong>Diameter:</strong> ${planetInfo.diameter}</p>
+        <p><strong>Distance from Sun:</strong> ${planetInfo.distanceFromSun}</p>
+        <p><strong>Orbital Period:</strong> ${planetInfo.orbitalPeriod}</p>
+        <p><strong>Temperature:</strong> ${planetInfo.surfaceTemp}</p>
+        <p>${planetInfo.description}</p>
+        ${createMoonsList(planet.mesh.name)}
+    `;
+
+    infoContainer.innerHTML = content;
+    document.body.appendChild(infoContainer);
+    console.log('Info panel added to document');
+}
+
+function createMoonsList(planetName) {
+    const moons = moonData[planetName];
+    if (!moons || moons.length === 0) return '<p>No moons</p>';
+
+    return `
+        <div class="moons-list">
+            <h3>Major Moons:</h3>
+            <ul>
+                ${moons.map(moon => `<li>${moon}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+}
+
+// Add closeInfo function to window object
+window.closeInfo = function() {
+    console.log('Closing info panel');
+    const infoPanel = document.querySelector('.planet-info');
+    if (infoPanel) {
+        infoPanel.remove();
+    }
 }
 
 function onWindowResize() {

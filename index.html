@@ -8,158 +8,168 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #000;
             font-family: Arial, sans-serif;
+            color: white;
+            background-color: black;
         }
+
         #loading {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: white;
             font-size: 24px;
-            z-index: 9999;
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
+            z-index: 1000;
         }
-        canvas {
-            display: block;
-        }
-        #info {
-            position: absolute;
-            top: 10px;
-            width: 100%;
-            text-align: center;
+
+        .label {
             color: white;
             font-family: Arial, sans-serif;
+            padding: 2px 6px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 3px;
+            font-size: 12px;
             pointer-events: none;
         }
-        #backButton {
+
+        .close-button {
             position: fixed;
             top: 20px;
             left: 20px;
-            padding: 10px 20px;
-            background-color: rgba(255, 255, 255, 0.2);
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
             color: white;
-            border: 1px solid white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 5px;
             cursor: pointer;
-            display: none;
-            z-index: 1000;
             font-size: 16px;
+            z-index: 1000;
+            display: none;
+            transition: all 0.3s ease;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        #backButton:hover {
-            background-color: rgba(255, 255, 255, 0.3);
+
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
         }
-        .planet-info-panel {
+
+        .close-button:active {
+            transform: scale(0.95);
+        }
+
+        .planet-info {
             position: fixed;
             right: 20px;
             top: 20px;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            width: 300px;
-            display: none;
+            max-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             z-index: 1000;
+            animation: slideIn 0.5s ease-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .planet-info-panel h2 {
-            margin: 0 0 15px 0;
-            color: #ffd700;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-            padding-bottom: 10px;
-        }
-        .planet-info-panel .info-row {
-            margin: 10px 0;
+
+        .planet-info-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
         }
-        .planet-info-panel .label {
-            color: #aaa;
-            margin-right: 10px;
+
+        .planet-info-header h2 {
+            margin: 0;
+            color: #4444ff;
+            text-shadow: 0 0 10px rgba(68, 68, 255, 0.5);
         }
-        .planet-info-panel .value {
-            color: white;
-            text-align: right;
+
+        .close-info-button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 8px;
+            line-height: 1;
+            border-radius: 50%;
+            transition: all 0.3s ease;
         }
-        .planet-info-panel .description {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.3);
+
+        .close-info-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        .close-info-button:active {
+            transform: scale(0.9);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .planet-info h2 {
+            margin: 0 0 15px 0;
+            color: #4444ff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+            text-shadow: 0 0 10px rgba(68, 68, 255, 0.5);
+        }
+
+        .planet-info p {
+            margin: 10px 0;
             line-height: 1.4;
         }
-        .planet-info-panel .moons-section {
-            margin-top: 15px;
+
+        .planet-info strong {
+            color: #88aaff;
+        }
+
+        .moons-list {
+            margin-top: 20px;
             padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .planet-info-panel .moons-title {
-            color: #ffd700;
-            margin-bottom: 10px;
+
+        .moons-list h3 {
+            color: #4444ff;
+            margin: 0 0 10px 0;
+            text-shadow: 0 0 10px rgba(68, 68, 255, 0.5);
         }
-        .planet-info-panel .moons-list {
-            columns: 2;
-            column-gap: 20px;
+
+        .moons-list ul {
             list-style: none;
             padding: 0;
             margin: 0;
+            columns: 2;
+            column-gap: 20px;
         }
-        .planet-info-panel .moons-list li {
+
+        .moons-list li {
             margin-bottom: 5px;
             color: #ddd;
+            transition: color 0.3s;
         }
-        .planet-name {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            font-size: 24px;
-            text-align: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 5px;
-            display: none;
-            z-index: 1000;
+
+        .moons-list li:hover {
+            color: #fff;
         }
     </style>
 </head>
 <body>
     <div id="loading">Loading Solar System...</div>
-    <div id="info">Solar System Visualization<br>Click on any planet to see detailed view</div>
-    <button id="backButton">← Back to Solar System</button>
-    <div id="planetName" class="planet-name"></div>
-    <div id="planetInfoPanel" class="planet-info-panel">
-        <h2 id="planetTitle"></h2>
-        <div class="info-row">
-            <span class="label">Type:</span>
-            <span class="value" id="planetType"></span>
-        </div>
-        <div class="info-row">
-            <span class="label">Diameter:</span>
-            <span class="value" id="planetDiameter"></span>
-        </div>
-        <div class="info-row">
-            <span class="label">Distance from Sun:</span>
-            <span class="value" id="planetDistance"></span>
-        </div>
-        <div class="info-row">
-            <span class="label">Orbital Period:</span>
-            <span class="value" id="planetPeriod"></span>
-        </div>
-        <div class="info-row">
-            <span class="label">Surface Temperature:</span>
-            <span class="value" id="planetTemp"></span>
-        </div>
-        <div class="description" id="planetDescription"></div>
-        <div class="moons-section">
-            <div class="moons-title">Major Moons:</div>
-            <ul class="moons-list" id="planetMoons"></ul>
-        </div>
-    </div>
+    <button id="closeButton" class="close-button" onclick="returnToSolarSystem()">← Back to Solar System</button>
     <script type="module" src="/main.js"></script>
 </body>
 </html> 
