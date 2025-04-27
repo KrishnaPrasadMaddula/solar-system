@@ -23,8 +23,7 @@ let orbitLines = []; // Array to store orbit lines
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// Comment out timer-related variables
-/*
+// Initialize timer-related variables
 let lastAlignmentTime = null;
 let nextAlignmentTime = null;
 let timerInterval = null;
@@ -33,7 +32,6 @@ let isTimerVisible = false;
 let lastCalculationTime = null;
 let calculationInterval = 10000; // Recalculate every 10 seconds
 let initialAlignmentTime = null; // Store the initial alignment time
-*/
 
 // Planet data with descriptions
 const planetData = {
@@ -496,11 +494,9 @@ function init() {
     createPlanets();
     createMoons();
 
-    // Comment out timer initialization
-    /*
+    // Initialize timer
     calculateNextAlignment();
     startAlignmentTimer();
-    */
 
     // Event listeners
     console.log('Setting up event listeners...');
@@ -1383,13 +1379,18 @@ window.closeExpandedInfo = function() {
     }
 }
 
-// Comment out timer-related functions
-/*
+// Add toggleTimer function to window object
+window.toggleTimer = function() {
+    const timerDisplay = document.querySelector('.timer-display');
+    isTimerVisible = !isTimerVisible;
+    timerDisplay.style.display = isTimerVisible ? 'block' : 'none';
+}
+
 function calculateNextAlignment() {
     const now = Date.now();
     
-    // Only calculate initial alignment time if not set
-    if (!initialAlignmentTime) {
+    // Only calculate if we don't have a valid next alignment time
+    if (!nextAlignmentTime || now >= nextAlignmentTime) {
         // Get current angles of all planets
         const currentAngles = planets.map(planet => planet.angle % (2 * Math.PI));
         
@@ -1398,27 +1399,30 @@ function calculateNextAlignment() {
         
         // If planets are already close to alignment, set a short time
         if (maxAngleDiff <= alignmentThreshold) {
-            initialAlignmentTime = now + 1000; // 1 second
+            nextAlignmentTime = now + 1000; // 1 second
         } else {
-            // Calculate how long it will take for the fastest planet to catch up to the slowest
+            // Calculate the time needed for the fastest planet to complete one full orbit
             const planetSpeeds = planets.map(planet => planet.speed);
             const minSpeed = Math.min(...planetSpeeds);
             const maxSpeed = Math.max(...planetSpeeds);
             
             // Calculate the time needed for alignment (in milliseconds)
-            const timeToAlignment = (maxAngleDiff / (maxSpeed - minSpeed)) * 1000;
-            initialAlignmentTime = now + timeToAlignment;
+            // This is based on the time it takes for the fastest planet to complete one orbit
+            const timeToAlignment = (2 * Math.PI / minSpeed) * 1000;
+            nextAlignmentTime = now + timeToAlignment;
         }
+        
+        console.log('Next alignment calculated:', new Date(nextAlignmentTime).toLocaleTimeString());
     }
-    
-    // Update the next alignment time based on the initial time
-    nextAlignmentTime = initialAlignmentTime;
 }
 
 function startAlignmentTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
     }
+
+    // Initial calculation
+    calculateNextAlignment();
 
     timerInterval = setInterval(() => {
         const now = Date.now();
@@ -1431,14 +1435,16 @@ function startAlignmentTimer() {
             
             if (anglesDiff <= alignmentThreshold) {
                 if (isTimerVisible) {
-                    document.getElementById('timer-display').textContent = "Alignment Occurring!";
+                    document.getElementById('timer-value').textContent = "Alignment Occurring!";
                 }
-                // Reset the initial alignment time for the next cycle
-                initialAlignmentTime = null;
-                calculateNextAlignment();
+                // Wait for 5 seconds before calculating next alignment
+                setTimeout(() => {
+                    nextAlignmentTime = null;
+                    calculateNextAlignment();
+                }, 5000);
             } else {
-                // If not aligned, recalculate from scratch
-                initialAlignmentTime = null;
+                // If not aligned, recalculate immediately
+                nextAlignmentTime = null;
                 calculateNextAlignment();
             }
             return;
@@ -1467,12 +1473,7 @@ function startAlignmentTimer() {
                 timerText = `${seconds}s`;
             }
             
-            document.getElementById('timer-display').textContent = timerText;
+            document.getElementById('timer-value').textContent = timerText;
         }
     }, 1000);
-}
-
-window.updateTimerVisibility = function(visible) {
-    isTimerVisible = visible;
-}
-*/ 
+} 
