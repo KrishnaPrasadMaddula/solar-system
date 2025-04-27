@@ -4,6 +4,6 @@ export default defineConfig({
   root: './',
   base: './',
   server: {
-    open: true // This will automatically open the browser
+    open: '/wallpaper.html' // This will automatically open the wallpaper.html file
   }
 }); 

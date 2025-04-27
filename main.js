@@ -23,6 +23,18 @@ let orbitLines = []; // Array to store orbit lines
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
+// Comment out timer-related variables
+/*
+let lastAlignmentTime = null;
+let nextAlignmentTime = null;
+let timerInterval = null;
+let alignmentThreshold = 0.1; // Threshold for considering planets aligned (in radians)
+let isTimerVisible = false;
+let lastCalculationTime = null;
+let calculationInterval = 10000; // Recalculate every 10 seconds
+let initialAlignmentTime = null; // Store the initial alignment time
+*/
+
 // Planet data with descriptions
 const planetData = {
     'Sun': {
@@ -194,8 +206,112 @@ const expandedPlanetData = {
             'Called Earth\'s sister planet due to similar size',
             'Day is longer than its year'
         ]
+    },
+    'Earth': {
+        composition: 'Iron core, rocky mantle, crust',
+        mass: '5.972 × 10^24 kg',
+        atmosphere: '78% nitrogen, 21% oxygen',
+        rotation: '23.9 hours',
+        magneticField: 'Protects from solar radiation',
+        funFacts: [
+            'Only known planet with life',
+            '71% of surface covered by water',
+            'Has one natural satellite (Moon)'
+        ]
+    },
+    'Mars': {
+        composition: 'Iron-rich core, rocky mantle, crust',
+        mass: '6.39 × 10^23 kg',
+        atmosphere: '95% carbon dioxide, thin',
+        rotation: '24.6 hours',
+        features: [
+            'Olympus Mons (largest volcano in solar system)',
+            'Valles Marineris (largest canyon)',
+            'Polar ice caps'
+        ],
+        funFacts: [
+            'Called the Red Planet due to iron oxide on surface',
+            'Has two small moons (Phobos and Deimos)',
+            'Evidence of past liquid water'
+        ]
+    },
+    'Jupiter': {
+        composition: 'Mostly hydrogen and helium',
+        mass: '1.898 × 10^27 kg',
+        atmosphere: '90% hydrogen, 10% helium',
+        rotation: '9.9 hours (fastest in solar system)',
+        features: [
+            'Great Red Spot (giant storm)',
+            '79 known moons',
+            'Faint ring system'
+        ],
+        funFacts: [
+            'Largest planet in solar system',
+            'Could fit 1,300 Earths inside',
+            'Strongest magnetic field of any planet'
+        ]
+    },
+    'Saturn': {
+        composition: 'Mostly hydrogen and helium',
+        mass: '5.683 × 10^26 kg',
+        atmosphere: '96% hydrogen, 3% helium',
+        rotation: '10.7 hours',
+        rings: 'Made of ice and rock particles',
+        moons: '82 known moons',
+        funFacts: [
+            'Most extensive ring system',
+            'Least dense planet (would float in water)',
+            'Titan is the only moon with a substantial atmosphere'
+        ]
+    },
+    'Uranus': {
+        composition: 'Ice and rock with hydrogen and helium atmosphere',
+        mass: '8.681 × 10^25 kg',
+        atmosphere: '83% hydrogen, 15% helium, 2% methane',
+        rotation: '17.2 hours (retrograde)',
+        features: [
+            'Rotates on its side (98° tilt)',
+            '13 rings',
+            '27 known moons'
+        ],
+        funFacts: [
+            'First planet discovered with telescope',
+            'Coldest planetary atmosphere in solar system',
+            'Methane gives it blue color'
+        ]
+    },
+    'Neptune': {
+        composition: 'Ice and rock with hydrogen and helium atmosphere',
+        mass: '1.024 × 10^26 kg',
+        atmosphere: '80% hydrogen, 19% helium, 1% methane',
+        rotation: '16.1 hours',
+        features: [
+            'Strongest winds in solar system (2,100 km/h)',
+            '14 known moons',
+            '6 rings'
+        ],
+        funFacts: [
+            'First planet found by mathematical prediction',
+            'Has the Great Dark Spot (storm system)',
+            'Takes 165 Earth years to orbit the Sun'
+        ]
+    },
+    'Pluto ☄️': {
+        composition: 'Rock and ice',
+        mass: '1.309 × 10^22 kg',
+        atmosphere: 'Nitrogen, methane, carbon monoxide',
+        rotation: '6.4 Earth days',
+        features: [
+            'Heart-shaped glacier (Tombaugh Regio)',
+            '5 known moons',
+            'Highly elliptical orbit'
+        ],
+        funFacts: [
+            'Reclassified as a dwarf planet in 2006',
+            'One day on Pluto lasts 6.4 Earth days',
+            'Has mountains made of water ice'
+        ]
     }
-    // ... Add more expanded data for other planets
 };
 
 const expandedSatelliteData = {
@@ -249,47 +365,117 @@ const expandedSatelliteData = {
     }
 };
 
+// Export functions for testing
+export { createScene, createPlanets, createSun, focusOnPlanet, returnToSolarSystem, createSatellite, createLights };
+
+// Function to create the scene
+function createScene() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 100, 200);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    document.getElementById('scene-container').appendChild(renderer.domElement);
+
+    // Initialize label renderer
+    labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    document.getElementById('scene-container').appendChild(labelRenderer.domElement);
+
+    // Initialize controls
+    controls = new OrbitControls(camera, labelRenderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.15;
+    controls.rotateSpeed = 0.5;
+    controls.zoomSpeed = 0.8;
+    controls.panSpeed = 0.8;
+
+    return { scene, camera, renderer, controls };
+}
+
+// Function to create lights
+function createLights(targetScene) {
+    const lights = {
+        ambient: new THREE.AmbientLight(0xffffff, 0.8),
+        directional: new THREE.DirectionalLight(0xffffff, 1.2),
+        hemisphere: new THREE.HemisphereLight(0xffffff, 0x444444, 0.8)
+    };
+
+    lights.directional.position.set(10, 10, 10);
+    
+    targetScene.add(lights.ambient);
+    targetScene.add(lights.directional);
+    targetScene.add(lights.hemisphere);
+
+    return lights;
+}
+
+// Function to return to solar system view
+function returnToSolarSystem() {
+    if (isTransitioning) return;
+    isTransitioning = true;
+    isAnimationPaused = false;
+
+    const infoElement = document.getElementById('planet-info');
+    const closeButton = document.getElementById('close-info');
+    
+    infoElement.style.display = 'none';
+    closeButton.style.display = 'none';
+
+    // Reset camera position
+    camera.position.set(0, 100, 200);
+    controls.target.set(0, 0, 0);
+
+    // Show all planets
+    planets.forEach(planet => {
+        planet.visible = true;
+        if (planet.userData.orbitLine) {
+            planet.userData.orbitLine.visible = true;
+        }
+    });
+
+    focusedPlanet = null;
+    isTransitioning = false;
+}
+
 function init() {
-    console.log('Initializing application...');
+    console.log('Initializing wallpaper...');
 
     // Scene setup
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
 
-    // Camera setup
+    // Camera setup - adjusted for better wallpaper view
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 300, 0); // Position camera directly above
+    camera.position.set(0, 400, 0); // Higher position for better overview
     camera.lookAt(0, 0, 0);
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(renderer.domElement);
+    document.getElementById('scene-container').appendChild(renderer.domElement);
 
     // Label renderer setup
     labelRenderer = new CSS2DRenderer();
     labelRenderer.setSize(window.innerWidth, window.innerHeight);
     labelRenderer.domElement.style.position = 'absolute';
     labelRenderer.domElement.style.top = '0px';
-    document.body.appendChild(labelRenderer.domElement);
+    document.getElementById('scene-container').appendChild(labelRenderer.domElement);
 
-    // Controls setup
+    // Controls setup - disabled for wallpaper mode
     controls = new OrbitControls(camera, labelRenderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.15;
-    controls.minDistance = 10;
-    controls.maxDistance = 500;
-    controls.rotateSpeed = 0.5;
-    controls.zoomSpeed = 0.8;
-    controls.panSpeed = 0.5;
-    controls.maxPolarAngle = Math.PI * 0.85;
-    controls.minPolarAngle = 0.1;
-    controls.enablePan = true;
-    controls.update();
+    controls.enabled = false; // Disable controls for wallpaper mode
 
     // Store initial camera position for reset
-    initialCameraPosition = { x: 0, y: 300, z: 0 };
+    initialCameraPosition = { x: 0, y: 400, z: 0 };
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -310,69 +496,56 @@ function init() {
     createPlanets();
     createMoons();
 
+    // Comment out timer initialization
+    /*
+    calculateNextAlignment();
+    startAlignmentTimer();
+    */
+
     // Event listeners
     console.log('Setting up event listeners...');
     window.addEventListener('resize', onWindowResize);
-    window.addEventListener('click', onMouseClick);
-
-    // Hide loading message
-    const loadingElement = document.getElementById('loading');
-    if (loadingElement) {
-        loadingElement.style.display = 'none';
-    }
+    
+    // Add click event listener to the scene container
+    const sceneContainer = document.getElementById('scene-container');
+    sceneContainer.addEventListener('click', onMouseClick, false);
+    sceneContainer.style.cursor = 'pointer'; // Add pointer cursor
 
     console.log('Initialization complete');
     animate();
 }
 
 function onMouseClick(event) {
-    if (isTransitioning) return;
-    
-    console.log('Click detected');
-    
-    // Calculate mouse position
+    // Get the bounding rectangle of the canvas
     const rect = renderer.domElement.getBoundingClientRect();
+    
+    // Calculate mouse position in normalized device coordinates
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     // Update the picking ray with the camera and mouse position
     raycaster.setFromCamera(mouse, camera);
 
-    // Get all meshes in the scene that could be clicked
-    const clickableMeshes = [];
-    scene.traverse((object) => {
-        if (object.isMesh) {
-            clickableMeshes.push(object);
-        }
+    // Calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    // Find the first planet that was clicked
+    const clickedObject = intersects.find(intersect => {
+        const object = intersect.object;
+        // Check if the object is a planet mesh or a child of a planet mesh
+        return planets.some(planet => planet.mesh === object || planet.mesh.children.includes(object));
     });
 
-    // Calculate intersections
-    const intersects = raycaster.intersectObjects(clickableMeshes, true);
-    console.log('Intersections found:', intersects.length);
-
-    if (intersects.length > 0) {
-        const clickedObject = intersects[0].object;
-        console.log('Clicked object:', clickedObject.name);
-
-        // Check if clicked object is a satellite
-        if (clickedObject.name && satelliteData[clickedObject.name]) {
-            showSatelliteInfo(clickedObject.name);
-            return;
-        }
-
-        // Find the corresponding planet or sun
-        if (clickedObject.name === 'Sun') {
-            focusOnPlanet({ mesh: clickedObject });
-        } else {
-            const planet = planets.find(p => 
-                p.mesh === clickedObject || 
-                p.mesh.children.includes(clickedObject) ||
-                (p.satellites && p.satellites.some(s => s.mesh === clickedObject))
-            );
-            if (planet) {
-                console.log('Found planet:', planet.mesh.name);
-                focusOnPlanet(planet);
-            }
+    if (clickedObject) {
+        // Find which planet was clicked
+        const planet = planets.find(p => 
+            p.mesh === clickedObject.object || 
+            p.mesh.children.includes(clickedObject.object)
+        );
+        
+        if (planet) {
+            console.log('Clicked planet:', planet.mesh.name);
+            focusOnPlanet(planet);
         }
     }
 }
@@ -396,15 +569,15 @@ function createSun() {
 
 function createPlanets() {
     const planetConfigs = [
-        { name: 'Mercury', radius: 7.0, color: 0xa5a5a5, orbit: 28, speed: 0.004 },
-        { name: 'Venus', radius: 7.0, color: 0xffd085, orbit: 40, speed: 0.003 },
-        { name: 'Earth', radius: 7.0, color: 0x2b34b2, orbit: 55, speed: 0.002 },
-        { name: 'Mars', radius: 7.0, color: 0xc1440e, orbit: 75, speed: 0.0016 },
-        { name: 'Jupiter', radius: 7.0, color: 0xd8ca9d, orbit: 100, speed: 0.001 },
-        { name: 'Saturn', radius: 7.0, color: 0xead6b8, orbit: 138, speed: 0.0008 },
-        { name: 'Uranus', radius: 7.0, color: 0x82b3d1, orbit: 176, speed: 0.0006 },
-        { name: 'Neptune', radius: 7.0, color: 0x2b67b2, orbit: 200, speed: 0.0004 },
-        { name: 'Pluto ☄️', radius: 7.0, color: 0x7c6a5c, orbit: 230, speed: 0.0002 }
+        { name: 'Mercury', radius: 7.0, color: 0xa5a5a5, orbit: 28, speed: 0.01 },    // Faster
+        { name: 'Venus', radius: 7.0, color: 0xffd085, orbit: 40, speed: 0.009 },     // Faster
+        { name: 'Earth', radius: 7.0, color: 0x2b34b2, orbit: 55, speed: 0.008 },     // Faster
+        { name: 'Mars', radius: 7.0, color: 0xc1440e, orbit: 75, speed: 0.007 },      // Faster
+        { name: 'Jupiter', radius: 7.0, color: 0xd8ca9d, orbit: 100, speed: 0.006 },  // Faster
+        { name: 'Saturn', radius: 7.0, color: 0xead6b8, orbit: 138, speed: 0.005 },   // Faster
+        { name: 'Uranus', radius: 7.0, color: 0x82b3d1, orbit: 176, speed: 0.004 },   // Faster
+        { name: 'Neptune', radius: 7.0, color: 0x2b67b2, orbit: 200, speed: 0.003 },  // Faster
+        { name: 'Pluto ☄️', radius: 7.0, color: 0x7c6a5c, orbit: 230, speed: 0.002 }  // Faster
     ];
 
     planets = planetConfigs.map(config => {
@@ -611,6 +784,9 @@ function focusOnPlanet(planet) {
     isTransitioning = true;
     focusedPlanet = planet;
 
+    // Show planet info immediately
+    showPlanetInfo(planet);
+
     // Calculate target position for camera
     const planetPosition = planet.mesh.position.clone();
     const radius = planet.mesh.geometry.parameters.radius;
@@ -658,9 +834,6 @@ function focusOnPlanet(planet) {
             isTransitioning = false;
             controls.target.copy(planetPosition);
             controls.update();
-            
-            // Show planet info after animation
-            showPlanetInfo(planet);
         }
     }
 
@@ -724,48 +897,48 @@ function showPlanetInfo(planet) {
         existingInfo.remove();
     }
 
+    // Create and style the info container
     const infoContainer = document.createElement('div');
     infoContainer.className = 'planet-info';
+    infoContainer.style.position = 'fixed';
+    infoContainer.style.top = '20px';
+    infoContainer.style.right = '20px';
+    infoContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    infoContainer.style.color = 'white';
+    infoContainer.style.padding = '20px';
+    infoContainer.style.borderRadius = '10px';
+    infoContainer.style.maxWidth = '300px';
+    infoContainer.style.zIndex = '1000';
+    infoContainer.style.backdropFilter = 'blur(10px)';
+    infoContainer.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+    infoContainer.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
+    infoContainer.style.fontFamily = 'Arial, sans-serif';
+    infoContainer.style.lineHeight = '1.5';
     
     const content = `
-        <div class="planet-info-header">
-            <h2>${planet.mesh.name}</h2>
-            <button class="close-info-button" onclick="closeInfo()">×</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="margin: 0; color: #4a9eff; font-size: 20px;">${planet.mesh.name}</h2>
+            <button onclick="closeInfo()" style="background: none; border: none; color: #4a9eff; font-size: 20px; cursor: pointer; padding: 5px;">×</button>
         </div>
-        <p><strong>Type:</strong> ${planetInfo.type}</p>
-        <p><strong>Diameter:</strong> ${planetInfo.diameter}</p>
-        <p><strong>Distance from Sun:</strong> ${planetInfo.distanceFromSun}</p>
-        <p><strong>Orbital Period:</strong> ${planetInfo.orbitalPeriod}</p>
-        <p><strong>Temperature:</strong> ${planetInfo.surfaceTemp}</p>
-        <p>${planetInfo.description}</p>
+        <p style="margin: 8px 0; font-size: 14px;"><strong>Type:</strong> ${planetInfo.type}</p>
+        <p style="margin: 8px 0; font-size: 14px;"><strong>Diameter:</strong> ${planetInfo.diameter}</p>
+        <p style="margin: 8px 0; font-size: 14px;"><strong>Distance from Sun:</strong> ${planetInfo.distanceFromSun}</p>
+        <p style="margin: 8px 0; font-size: 14px;"><strong>Orbital Period:</strong> ${planetInfo.orbitalPeriod}</p>
+        <p style="margin: 8px 0; font-size: 14px;"><strong>Temperature:</strong> ${planetInfo.surfaceTemp}</p>
+        <p style="margin: 8px 0; font-size: 14px;">${planetInfo.description}</p>
         ${createMoonsList(planet.mesh.name)}
-        <button class="view-more-button" onclick="showExpandedInfo('${planet.mesh.name}', 'planet')">View More Details</button>
+        <button onclick="showExpandedInfo('${planet.mesh.name}', 'planet')" style="background-color: #4a9eff; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-top: 15px; font-size: 14px; width: 100%; transition: background-color 0.3s;">View More Details</button>
     `;
 
     infoContainer.innerHTML = content;
     document.body.appendChild(infoContainer);
 
-    // Add styles for the view more button
-    const style = document.createElement('style');
-    style.textContent = `
-        .view-more-button {
-            background-color: #4a9eff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 15px;
-            font-size: 14px;
-            transition: background-color 0.3s;
-            width: 100%;
-        }
-
-        .view-more-button:hover {
-            background-color: #357abd;
-        }
-    `;
-    document.head.appendChild(style);
+    // Add animation
+    infoContainer.style.opacity = '0';
+    infoContainer.style.transition = 'opacity 0.3s ease-in';
+    setTimeout(() => {
+        infoContainer.style.opacity = '1';
+    }, 10);
 }
 
 function createMoonsList(planetName) {
@@ -782,15 +955,13 @@ function createMoonsList(planetName) {
     `;
 }
 
-// Add closeInfo function to window object
+// Update the closeInfo function
 window.closeInfo = function() {
-    console.log('Closing info panel and returning to top view');
     const infoPanel = document.querySelector('.planet-info');
     if (infoPanel) {
-        // Add fade-out animation
-        infoPanel.style.transition = 'opacity 0.5s ease-out';
         infoPanel.style.opacity = '0';
-        setTimeout(() => infoPanel.remove(), 500);
+        infoPanel.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => infoPanel.remove(), 300);
     }
     
     // Return to top view
@@ -1210,4 +1381,98 @@ window.closeExpandedInfo = function() {
         panel.style.animation = 'fadeOut 0.3s ease-out';
         setTimeout(() => panel.remove(), 300);
     }
-} 
+}
+
+// Comment out timer-related functions
+/*
+function calculateNextAlignment() {
+    const now = Date.now();
+    
+    // Only calculate initial alignment time if not set
+    if (!initialAlignmentTime) {
+        // Get current angles of all planets
+        const currentAngles = planets.map(planet => planet.angle % (2 * Math.PI));
+        
+        // Find the maximum difference between any two planets
+        const maxAngleDiff = Math.max(...currentAngles) - Math.min(...currentAngles);
+        
+        // If planets are already close to alignment, set a short time
+        if (maxAngleDiff <= alignmentThreshold) {
+            initialAlignmentTime = now + 1000; // 1 second
+        } else {
+            // Calculate how long it will take for the fastest planet to catch up to the slowest
+            const planetSpeeds = planets.map(planet => planet.speed);
+            const minSpeed = Math.min(...planetSpeeds);
+            const maxSpeed = Math.max(...planetSpeeds);
+            
+            // Calculate the time needed for alignment (in milliseconds)
+            const timeToAlignment = (maxAngleDiff / (maxSpeed - minSpeed)) * 1000;
+            initialAlignmentTime = now + timeToAlignment;
+        }
+    }
+    
+    // Update the next alignment time based on the initial time
+    nextAlignmentTime = initialAlignmentTime;
+}
+
+function startAlignmentTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+
+    timerInterval = setInterval(() => {
+        const now = Date.now();
+        const timeLeft = nextAlignmentTime - now;
+
+        if (timeLeft <= 0) {
+            // Check if planets are actually aligned
+            const currentAngles = planets.map(planet => planet.angle % (2 * Math.PI));
+            const anglesDiff = Math.max(...currentAngles) - Math.min(...currentAngles);
+            
+            if (anglesDiff <= alignmentThreshold) {
+                if (isTimerVisible) {
+                    document.getElementById('timer-display').textContent = "Alignment Occurring!";
+                }
+                // Reset the initial alignment time for the next cycle
+                initialAlignmentTime = null;
+                calculateNextAlignment();
+            } else {
+                // If not aligned, recalculate from scratch
+                initialAlignmentTime = null;
+                calculateNextAlignment();
+            }
+            return;
+        }
+
+        // Only update display if timer is visible
+        if (isTimerVisible) {
+            // Calculate time components
+            const seconds = Math.floor((timeLeft / 1000) % 60);
+            const minutes = Math.floor((timeLeft / (1000 * 60)) % 60);
+            const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
+            const days = Math.floor((timeLeft / (1000 * 60 * 60 * 24)) % 365);
+            const years = Math.floor(timeLeft / (1000 * 60 * 60 * 24 * 365));
+
+            // Only show relevant time units
+            let timerText;
+            if (years > 0) {
+                timerText = `${years}y ${days}d ${hours}h ${minutes}m ${seconds}s`;
+            } else if (days > 0) {
+                timerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+            } else if (hours > 0) {
+                timerText = `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+                timerText = `${minutes}m ${seconds}s`;
+            } else {
+                timerText = `${seconds}s`;
+            }
+            
+            document.getElementById('timer-display').textContent = timerText;
+        }
+    }, 1000);
+}
+
+window.updateTimerVisibility = function(visible) {
+    isTimerVisible = visible;
+}
+*/ 
